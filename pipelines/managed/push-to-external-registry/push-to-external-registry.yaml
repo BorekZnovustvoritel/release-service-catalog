@@ -66,7 +66,7 @@ spec:
     - name: mobster_tasks_git_revision
       description: the revision for SBOM-related Mobster tasks
       type: string
-      default: ISV-6681-code
+      default: ISV-6815-test
   tasks:
     - name: verify-access-to-resources
       taskRef:
@@ -192,14 +192,37 @@ spec:
 #        resolver: git
 #      runAfter:
 #        - collect-data
+    - name: collect-signing-params
+      taskRef:
+        resolver: "git"
+        params:
+          - name: url
+            value: https://github.com/Allda/release-service-catalog.git
+          - name: revision
+            value: ISV-6717
+          - name: pathInRepo
+            value: tasks/managed/collect-signing-params/collect-signing-params.yaml
+      params:
+        - name: sourceDataArtifact
+          value: "$(tasks.collect-data.results.sourceDataArtifact)"
+        - name: dataDir
+          value: $(params.dataDir)
+        - name: trustedArtifactsDebug
+          value: "$(params.trustedArtifactsDebug)"
+        - name: taskGitUrl
+          value: "$(params.taskGitUrl)"
+        - name: taskGitRevision
+          value: "$(params.taskGitRevision)"
+      runAfter:
+        - collect-data
     - name: reduce-snapshot
       taskRef:
         resolver: "git"
         params:
           - name: url
-            value: $(params.taskGitUrl)
+            value: https://github.com/Allda/release-service-catalog.git
           - name: revision
-            value: $(params.taskGitRevision)
+            value: ISV-6717
           - name: pathInRepo
             value: tasks/managed/reduce-snapshot/reduce-snapshot.yaml
       params:
