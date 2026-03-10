@@ -440,6 +440,8 @@ spec:
           value: "$(params.taskGitRevision)"
         - name: resultsDirPath
           value: $(tasks.collect-data.results.resultsDir)
+        - name: atlasSecretName
+          value: tpa-secret
       runAfter:
         - collect-data
         - apply-mapping
