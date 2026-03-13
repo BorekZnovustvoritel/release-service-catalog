@@ -2,10 +2,11 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: test-collect-atlas-params-stage
+  name: test-collect-tpa-params-konflux-info
 spec:
   description: |
-    Run the collect-atlas-params task and verify the results.
+    Run the collect-tpa-params task with a configmap present and verify
+    that the TSF workflow produces the expected results.
   params:
     - name: ociStorage
       description: The OCI repository where the Trusted Artifacts are stored.
@@ -48,19 +49,17 @@ spec:
               value: "$(params.trustedArtifactsDebug)"
         steps:
           - name: setup-values
-            image: quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
+            image:
+              quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
             script: |
               #!/usr/bin/env bash
               set -eux
 
-              mkdir -p "$(params.dataDir)/$(context.pipelineRun.uid)"
-              cat > "$(params.dataDir)/$(context.pipelineRun.uid)/data.json" << EOF
-              {
-                "atlas": {
-                  "server": "stage"
-                }
-              }
-              EOF
+              kubectl create configmap test-cluster-config \
+                --from-literal=trustifyServerInternalUrl="https://trustify.example.com" \
+                --from-literal=trustifyOIDCIssuerUrl="https://sso.example.com/realms/chicken"
+
+              mkdir -p "$(params.dataDir)"
           - name: create-trusted-artifact
             ref:
               name: create-trusted-artifact
@@ -73,10 +72,8 @@ spec:
                 value: $(results.sourceDataArtifact.path)
     - name: run-task
       taskRef:
-        name: collect-atlas-params
+        name: collect-tpa-params
       params:
-        - name: dataPath
-          value: "$(context.pipelineRun.uid)/data.json"
         - name: ociStorage
           value: $(params.ociStorage)
         - name: orasOptions
@@ -91,6 +88,10 @@ spec:
           value: "http://localhost"
         - name: taskGitRevision
           value: "main"
+        - name: configMapName
+          value: test-cluster-config
+        - name: configMapNamespace
+          value: $(context.pipelineRun.namespace)
       runAfter:
         - setup
     - name: check-result
@@ -119,7 +120,8 @@ spec:
             type: string
         steps:
           - name: check-result
-            image: quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
+            image:
+              quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
             env:
               - name: "SECRET_NAME"
                 value: '$(params.secretName)'
@@ -135,9 +137,9 @@ spec:
               #!/usr/bin/env bash
               set -eux
 
-              test "$SECRET_NAME" = "atlas-staging-sso-secret"
-              test "$SSO_TOKEN_URL" = "https://auth.stage.redhat.com/auth/realms\
-              /EmployeeIDP/protocol/openid-connect/token"
-              test "$ATLAS_API_URL" = "https://atlas.release.stage.devshift.net"
-              test "$RETRY_AWS_SECRET_NAME" = "atlas-retry-s3-staging-secret"
-              test "$RETRY_S3_BUCKET" = "mpp-e1-preprod-sbom-29093454-2ea7-4fd0-b4cf-dc69a7529ee0"
+              test "$ATLAS_API_URL" = "https://trustify.example.com"
+              test "$SSO_TOKEN_URL" = \
+                "https://sso.example.com/realms/chicken/protocol/openid-connect/token"
+              test "$SECRET_NAME" = "release-sso-secret"
+              test "$RETRY_AWS_SECRET_NAME" = ""
+              test "$RETRY_S3_BUCKET" = ""

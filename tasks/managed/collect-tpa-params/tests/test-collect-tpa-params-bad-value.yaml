@@ -2,12 +2,12 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: test-collect-atlas-params-bad-value
+  name: test-collect-tpa-params-bad-value
   annotations:
     test/assert-task-failure: "run-task"
 spec:
   description: |
-    Run the collect-atlas-params task with a bad value as atlasServer.
+    Run the collect-tpa-params task with a bad value as atlasServer.
   params:
     - name: ociStorage
       description: The OCI repository where the Trusted Artifacts are stored.
@@ -75,7 +75,7 @@ spec:
                 value: $(results.sourceDataArtifact.path)
     - name: run-task
       taskRef:
-        name: collect-atlas-params
+        name: collect-tpa-params
       params:
         - name: dataPath
           value: "$(context.pipelineRun.uid)/data.json"

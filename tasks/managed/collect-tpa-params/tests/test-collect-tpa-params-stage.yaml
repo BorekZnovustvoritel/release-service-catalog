@@ -2,12 +2,10 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: test-collect-atlas-params-nonexistent
-  annotations:
-    test/assert-task-failure: "run-task"
+  name: test-collect-tpa-params-stage
 spec:
   description: |
-    Run the collect-atlas-params task with a missing atlasServer key.
+    Run the collect-tpa-params task and verify the results.
   params:
     - name: ociStorage
       description: The OCI repository where the Trusted Artifacts are stored.
@@ -56,7 +54,13 @@ spec:
               set -eux
 
               mkdir -p "$(params.dataDir)/$(context.pipelineRun.uid)"
-              echo "{}" > "$(params.dataDir)/$(context.pipelineRun.uid)/data.json"
+              cat > "$(params.dataDir)/$(context.pipelineRun.uid)/data.json" << EOF
+              {
+                "atlas": {
+                  "server": "stage"
+                }
+              }
+              EOF
           - name: create-trusted-artifact
             ref:
               name: create-trusted-artifact
@@ -69,7 +73,7 @@ spec:
                 value: $(results.sourceDataArtifact.path)
     - name: run-task
       taskRef:
-        name: collect-atlas-params
+        name: collect-tpa-params
       params:
         - name: dataPath
           value: "$(context.pipelineRun.uid)/data.json"
@@ -89,3 +93,51 @@ spec:
           value: "main"
       runAfter:
         - setup
+    - name: check-result
+      params:
+        - name: secretName
+          value: $(tasks.run-task.results.secretName)
+        - name: ssoTokenUrl
+          value: $(tasks.run-task.results.ssoTokenUrl)
+        - name: atlasApiUrl
+          value: $(tasks.run-task.results.atlasApiUrl)
+        - name: retryAWSSecretName
+          value: $(tasks.run-task.results.retryAWSSecretName)
+        - name: retryS3Bucket
+          value: $(tasks.run-task.results.retryS3Bucket)
+      taskSpec:
+        params:
+          - name: secretName
+            type: string
+          - name: ssoTokenUrl
+            type: string
+          - name: atlasApiUrl
+            type: string
+          - name: retryAWSSecretName
+            type: string
+          - name: retryS3Bucket
+            type: string
+        steps:
+          - name: check-result
+            image: quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
+            env:
+              - name: "SECRET_NAME"
+                value: '$(params.secretName)'
+              - name: "SSO_TOKEN_URL"
+                value: '$(params.ssoTokenUrl)'
+              - name: "ATLAS_API_URL"
+                value: '$(params.atlasApiUrl)'
+              - name: "RETRY_AWS_SECRET_NAME"
+                value: '$(params.retryAWSSecretName)'
+              - name: "RETRY_S3_BUCKET"
+                value: '$(params.retryS3Bucket)'
+            script: |
+              #!/usr/bin/env bash
+              set -eux
+
+              test "$SECRET_NAME" = "atlas-staging-sso-secret"
+              test "$SSO_TOKEN_URL" = "https://auth.stage.redhat.com/auth/realms\
+              /EmployeeIDP/protocol/openid-connect/token"
+              test "$ATLAS_API_URL" = "https://atlas.release.stage.devshift.net"
+              test "$RETRY_AWS_SECRET_NAME" = "atlas-retry-s3-staging-secret"
+              test "$RETRY_S3_BUCKET" = "mpp-e1-preprod-sbom-29093454-2ea7-4fd0-b4cf-dc69a7529ee0"

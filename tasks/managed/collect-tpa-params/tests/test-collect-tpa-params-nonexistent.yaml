@@ -2,10 +2,12 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: test-collect-atlas-params-stage-custom-secret
+  name: test-collect-tpa-params-nonexistent
+  annotations:
+    test/assert-task-failure: "run-task"
 spec:
   description: |
-    Run the collect-atlas-params task with custom secret params in the RPA and verify the results.
+    Run the collect-tpa-params task with a missing atlasServer key.
   params:
     - name: ociStorage
       description: The OCI repository where the Trusted Artifacts are stored.
@@ -54,15 +56,7 @@ spec:
               set -eux
 
               mkdir -p "$(params.dataDir)/$(context.pipelineRun.uid)"
-              cat > "$(params.dataDir)/$(context.pipelineRun.uid)/data.json" << EOF
-              {
-                "atlas": {
-                  "server": "stage",
-                  "atlas-sso-secret-name": "some-other-secret-name",
-                  "atlas-retry-aws-secret-name": "another-secret-name"
-                }
-              }
-              EOF
+              echo "{}" > "$(params.dataDir)/$(context.pipelineRun.uid)/data.json"
           - name: create-trusted-artifact
             ref:
               name: create-trusted-artifact
@@ -75,7 +69,7 @@ spec:
                 value: $(results.sourceDataArtifact.path)
     - name: run-task
       taskRef:
-        name: collect-atlas-params
+        name: collect-tpa-params
       params:
         - name: dataPath
           value: "$(context.pipelineRun.uid)/data.json"
@@ -95,29 +89,3 @@ spec:
           value: "main"
       runAfter:
         - setup
-    - name: check-result
-      params:
-        - name: secretName
-          value: $(tasks.run-task.results.secretName)
-        - name: retryAWSSecretName
-          value: $(tasks.run-task.results.retryAWSSecretName)
-      taskSpec:
-        params:
-          - name: secretName
-            type: string
-          - name: retryAWSSecretName
-            type: string
-        steps:
-          - name: check-result
-            image: quay.io/konflux-ci/release-service-utils@sha256:5546fa78d3c88d7b6a2e8cff8902f7757f00541d0bbaf113b9f293133894afa3
-            env:
-              - name: "SECRET_NAME"
-                value: '$(params.secretName)'
-              - name: "RETRY_AWS_SECRET_NAME"
-                value: '$(params.retryAWSSecretName)'
-            script: |
-              #!/usr/bin/env bash
-              set -eux
-
-              test "$SECRET_NAME" = "some-other-secret-name"
-              test "$RETRY_AWS_SECRET_NAME" = "another-secret-name"
