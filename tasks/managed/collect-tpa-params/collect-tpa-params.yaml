@@ -161,57 +161,59 @@ spec:
 
         KFLX_CONFIG_PATH='/tmp/konflux_config.json'
 
+        echo 'Checking for TSF configuration...'
         if retry 3 kubectl get configmap "$(params.configMapName)" -n "$(params.configMapNamespace)" -o json > \
-          "$KFLX_CONFIG_PATH" 2>/dev/null; then
+         "$KFLX_CONFIG_PATH"; then
+          atlasApiURL=$(jq -r '.data.trustifyServerInternalUrl // ""' "$KFLX_CONFIG_PATH")
+          ssoTokenBaseURL=$(jq -r '.data.trustifyOIDCIssuerUrl // ""' "$KFLX_CONFIG_PATH")
+          if [ -n "$atlasApiURL" ] && [ -n "$ssoTokenBaseURL" ]; then
             echo 'TSF workflow active'
-
-            atlasApiURL=$(jq -r '.data.trustifyServerInternalUrl // ""' "$KFLX_CONFIG_PATH")
-            ssoTokenBaseURL=$(jq -r '.data.trustifyOIDCIssuerUrl // ""' "$KFLX_CONFIG_PATH")
             ssoTokenFullURL="${ssoTokenBaseURL}/protocol/openid-connect/token"
-            
             echo -n "$atlasApiURL" > "$(results.atlasApiUrl.path)"
             echo -n "$ssoTokenFullURL" > "$(results.ssoTokenUrl.path)"
             echo -n 'release-sso-secret' > "$(results.secretName.path)"
             # empty results for completeness, TSF doesn't use AWS S3
             echo -n '' > "$(results.retryAWSSecretName.path)"
             echo -n '' > "$(results.retryS3Bucket.path)"
-
-        else
-            echo 'Red Hat internal workflow active'
-
-            DATA_FILE="$(params.dataDir)/$(params.dataPath)"
-            if [ ! -f "${DATA_FILE}" ] ; then
-                echo "ERROR: No valid data file was provided."
-                exit 1
-            fi
-            atlasServer=$(jq -r '(.atlas // .tpa).server' "$DATA_FILE")
-            if [ "$atlasServer" = "stage" ]; then
-                atlasApiUrl="https://atlas.release.stage.devshift.net"
-                ssoTokenUrl="https://auth.stage.redhat.com/auth/realms/EmployeeIDP/protocol/openid-connect/token"
-                secretName=$(jq -r \
-                  '(.atlas // .tpa)."atlas-sso-secret-name" // "atlas-staging-sso-secret"' "$DATA_FILE")
-                retryAWSSecretName=$(jq -r \
-                  '(.atlas // .tpa)."atlas-retry-aws-secret-name" // "atlas-retry-s3-staging-secret"' "$DATA_FILE")
-                retryS3Bucket="mpp-e1-preprod-sbom-29093454-2ea7-4fd0-b4cf-dc69a7529ee0"
-            elif [ "$atlasServer" = "production" ]; then
-                atlasApiUrl="https://atlas.release.devshift.net"
-                ssoTokenUrl="https://auth.redhat.com/auth/realms/EmployeeIDP/protocol/openid-connect/token"
-                secretName=$(jq -r '(.atlas // .tpa)."atlas-sso-secret-name" // "atlas-prod-sso-secret"' "$DATA_FILE")
-                retryAWSSecretName=$(jq -r \
-                  '(.atlas // .tpa)."atlas-retry-aws-secret-name" // "atlas-retry-s3-production-secret"' "$DATA_FILE")
-                retryS3Bucket="mpp-e1-prod-sbom-e02138d3-5c5c-4d90-a38f-6c54f658604d"
-            elif [ "$atlasServer" = "null" ]; then
-                echo "ERROR: .(tpa/atlas).server value is missing from the data file. This field is mandatory."
-                echo "Consult with your release engineering contact to ask why you are missing this value"
-                exit 1
-            else
-                echo "ERROR: Unknown .(tpa/atlas).server value '$atlasServer'. Expected 'stage' or 'production'."
-                exit 1
-            fi
-
-            echo -n "$atlasApiUrl" > "$(results.atlasApiUrl.path)"
-            echo -n "$ssoTokenUrl" > "$(results.ssoTokenUrl.path)"
-            echo -n "$secretName" > "$(results.secretName.path)"
-            echo -n "$retryAWSSecretName" > "$(results.retryAWSSecretName.path)"
-            echo -n "$retryS3Bucket" > "$(results.retryS3Bucket.path)"
+            echo 'Gathered TSF configuration, shutting down script.'
+            exit 0
+          fi
         fi
+
+          echo 'Red Hat internal workflow active'
+
+          DATA_FILE="$(params.dataDir)/$(params.dataPath)"
+          if [ ! -f "${DATA_FILE}" ] ; then
+              echo "ERROR: No valid data file was provided."
+              exit 1
+          fi
+          atlasServer=$(jq -r '(.atlas // .tpa).server' "$DATA_FILE")
+          if [ "$atlasServer" = "stage" ]; then
+              atlasApiUrl="https://atlas.release.stage.devshift.net"
+              ssoTokenUrl="https://auth.stage.redhat.com/auth/realms/EmployeeIDP/protocol/openid-connect/token"
+              secretName=$(jq -r \
+                '(.atlas // .tpa)."atlas-sso-secret-name" // "atlas-staging-sso-secret"' "$DATA_FILE")
+              retryAWSSecretName=$(jq -r \
+                '(.atlas // .tpa)."atlas-retry-aws-secret-name" // "atlas-retry-s3-staging-secret"' "$DATA_FILE")
+              retryS3Bucket="mpp-e1-preprod-sbom-29093454-2ea7-4fd0-b4cf-dc69a7529ee0"
+          elif [ "$atlasServer" = "production" ]; then
+              atlasApiUrl="https://atlas.release.devshift.net"
+              ssoTokenUrl="https://auth.redhat.com/auth/realms/EmployeeIDP/protocol/openid-connect/token"
+              secretName=$(jq -r '(.atlas // .tpa)."atlas-sso-secret-name" // "atlas-prod-sso-secret"' "$DATA_FILE")
+              retryAWSSecretName=$(jq -r \
+                '(.atlas // .tpa)."atlas-retry-aws-secret-name" // "atlas-retry-s3-production-secret"' "$DATA_FILE")
+              retryS3Bucket="mpp-e1-prod-sbom-e02138d3-5c5c-4d90-a38f-6c54f658604d"
+          elif [ "$atlasServer" = "null" ]; then
+              echo "ERROR: .(tpa/atlas).server value is missing from the data file. This field is mandatory."
+              echo "Consult with your release engineering contact to ask why you are missing this value"
+              exit 1
+          else
+              echo "ERROR: Unknown .(tpa/atlas).server value '$atlasServer'. Expected 'stage' or 'production'."
+              exit 1
+          fi
+
+          echo -n "$atlasApiUrl" > "$(results.atlasApiUrl.path)"
+          echo -n "$ssoTokenUrl" > "$(results.ssoTokenUrl.path)"
+          echo -n "$secretName" > "$(results.secretName.path)"
+          echo -n "$retryAWSSecretName" > "$(results.retryAWSSecretName.path)"
+          echo -n "$retryS3Bucket" > "$(results.retryS3Bucket.path)"
