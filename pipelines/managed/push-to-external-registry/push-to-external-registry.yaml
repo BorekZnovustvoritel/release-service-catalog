@@ -149,7 +149,7 @@ spec:
           value: |
             [
               {"resultIndex": 0, "key": ".conforma.workerCount", "default": "4"},
-              {"resultIndex": 1, "key": ".sign.cosignSecretName", "default": ""}
+              {"resultIndex": 1, "key": ".sign.cosignSecretName", "default": "secret-not-present"}
             ]
         - name: taskGitUrl
           value: "$(params.taskGitUrl)"
@@ -523,6 +523,16 @@ spec:
           value: "$(tasks.collect-task-params.results.extractedValues[1])"
         - name: attestationPubKey
           value: "$(params.conformaPubKey)"
+        - name: defaultOIDCIssuer
+          value: "$(tasks.collect-signing-params.results.defaultOIDCIssuer)"
+        - name: rekorExternalUrl
+          value: "$(tasks.collect-signing-params.results.rekorExternalUrl)"
+        - name: fulcioExternalUrl
+          value: "$(tasks.collect-signing-params.results.fulcioExternalUrl)"
+        - name: tufExternalUrl
+          value: "$(tasks.collect-signing-params.results.tufExternalUrl)"
+        - name: buildIdentityRegexp
+          value: "$(tasks.collect-signing-params.results.buildIdentityRegexp)"
       runAfter:
         - collect-data
         - apply-mapping
