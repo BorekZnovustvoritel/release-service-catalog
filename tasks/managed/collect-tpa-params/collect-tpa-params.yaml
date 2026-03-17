@@ -172,8 +172,8 @@ spec:
             echo -n "$atlasApiURL" > "$(results.atlasApiUrl.path)"
             echo -n "$ssoTokenFullURL" > "$(results.ssoTokenUrl.path)"
             echo -n 'release-sso-secret' > "$(results.secretName.path)"
-            # empty results for completeness, TSF doesn't use AWS S3
-            echo -n '' > "$(results.retryAWSSecretName.path)"
+            # TSF doesn't use AWS S3, but empty secret names are invalid in K8s
+            echo -n 'secret-not-present' > "$(results.retryAWSSecretName.path)"
             echo -n '' > "$(results.retryS3Bucket.path)"
             echo 'Gathered TSF configuration, shutting down script.'
             exit 0
