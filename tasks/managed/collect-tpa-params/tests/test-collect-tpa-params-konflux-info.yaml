@@ -56,7 +56,7 @@ spec:
               set -eux
 
               kubectl create configmap test-cluster-config \
-                --from-literal=trustifyServerInternalUrl="https://trustify.example.com" \
+                --from-literal=trustifyServerExternalUrl="https://trustify.example.com" \
                 --from-literal=trustifyOIDCIssuerUrl="https://sso.example.com/realms/chicken"
 
               mkdir -p "$(params.dataDir)"

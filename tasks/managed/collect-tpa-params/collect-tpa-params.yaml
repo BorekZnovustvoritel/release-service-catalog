@@ -164,7 +164,7 @@ spec:
         echo 'Checking for TSF configuration...'
         if retry 3 kubectl get configmap "$(params.configMapName)" -n "$(params.configMapNamespace)" -o json > \
          "$KFLX_CONFIG_PATH"; then
-          atlasApiURL=$(jq -r '.data.trustifyServerInternalUrl // ""' "$KFLX_CONFIG_PATH")
+          atlasApiURL=$(jq -r '.data.trustifyServerExternalUrl // ""' "$KFLX_CONFIG_PATH")
           ssoTokenBaseURL=$(jq -r '.data.trustifyOIDCIssuerUrl // ""' "$KFLX_CONFIG_PATH")
           if [ -n "$atlasApiURL" ] && [ -n "$ssoTokenBaseURL" ]; then
             echo 'TSF workflow active'
